@@ -1,12 +1,21 @@
 import React from 'react';
-import { Camera, PieChart, Target, TrendingUp } from 'lucide-react';
+import { Camera, PieChart, Target, TrendingUp, LogOut } from 'lucide-react';
+import { User } from '@supabase/supabase-js';
+import { useAuth } from '../hooks/useAuth';
 
 interface HeaderProps {
   currentView: 'upload' | 'summary' | 'goals' | 'progress';
   onViewChange: (view: 'upload' | 'summary' | 'goals' | 'progress') => void;
+  user: User;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentView, onViewChange }) => {
+export const Header: React.FC<HeaderProps> = ({ currentView, onViewChange, user }) => {
+  const { signOut } = useAuth();
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
   const navItems = [
     { id: 'upload', label: 'Upload', icon: Camera },
     { id: 'summary', label: 'Summary', icon: PieChart },
@@ -42,6 +51,22 @@ export const Header: React.FC<HeaderProps> = ({ currentView, onViewChange }) => 
                 <span className="hidden sm:inline">{label}</span>
               </button>
             ))}
+            
+            <div className="flex items-center space-x-3 ml-6 pl-6 border-l border-gray-200">
+              <div className="text-right">
+                <p className="text-sm font-medium text-gray-800">
+                  {user.user_metadata?.full_name || user.email}
+                </p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+              </div>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
+                title="Sign out"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
           </nav>
         </div>
       </div>

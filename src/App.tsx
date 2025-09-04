@@ -5,6 +5,11 @@ import { NutritionSummary } from './components/NutritionSummary';
 import { GoalSettings } from './components/GoalSettings';
 import { ProgressChart } from './components/ProgressChart';
 import { FoodAnalysis } from './components/FoodAnalysis';
+import { AuthForm } from './components/AuthForm';
+import { useAuth } from './hooks/useAuth';
+import { useUserGoals } from './hooks/useUserGoals';
+import { useFoodLogs } from './hooks/useFoodLogs';
+import { Loader } from 'lucide-react';
 
 export interface UserGoals {
   currentWeight: number;
@@ -34,49 +39,29 @@ export interface FoodItem {
 }
 
 function App() {
+  const { user, loading: authLoading } = useAuth();
+  const { goals, loading: goalsLoading, updateGoals } = useUserGoals(user?.id);
+  const { foods, loading: foodsLoading, totalNutrition, addFood } = useFoodLogs(user?.id);
+  
   const [currentView, setCurrentView] = useState<'upload' | 'summary' | 'goals' | 'progress'>('upload');
-  const [userGoals, setUserGoals] = useState<UserGoals>({
-    currentWeight: 70,
-    targetWeight: 65,
-    targetDate: '2025-02-28',
-    dailyCalories: 1800,
-    protein: 120,
-    vegetables: 400,
-    carbs: 200
-  });
-
-  const [todaysFoods, setTodaysFoods] = useState<FoodItem[]>([
-    {
-      id: '1',
-      name: 'Grilled Chicken Salad',
-      image: 'https://images.pexels.com/photos/1640777/pexels-photo-1640777.jpeg?auto=compress&cs=tinysrgb&w=400',
-      nutrition: {
-        calories: 350,
-        protein: 35,
-        vegetables: 150,
-        carbs: 15,
-        fiber: 8,
-        sugar: 5
-      },
-      timestamp: new Date()
-    },
-    {
-      id: '2',
-      name: 'Oatmeal with Berries',
-      image: 'https://images.pexels.com/photos/1132047/pexels-photo-1132047.jpeg?auto=compress&cs=tinysrgb&w=400',
-      nutrition: {
-        calories: 280,
-        protein: 12,
-        vegetables: 0,
-        carbs: 45,
-        fiber: 6,
-        sugar: 12
-      },
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000)
-    }
-  ]);
-
   const [analysisResult, setAnalysisResult] = useState<FoodItem | null>(null);
+
+  // Show loading screen while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
+          <p className="text-gray-600">Loading NutriLens...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show auth form if user is not logged in
+  if (!user) {
+    return <AuthForm />;
+  }
 
   const handlePhotoAnalysis = (imageUrl: string) => {
     // Simulate API call with mock data
@@ -99,58 +84,67 @@ function App() {
     }, 2000);
   };
 
-  const addFoodToToday = (food: FoodItem) => {
-    setTodaysFoods(prev => [food, ...prev]);
+  const addFoodToToday = async (food: FoodItem) => {
+    await addFood({
+      name: food.name,
+      image: food.image,
+      nutrition: food.nutrition,
+      timestamp: food.timestamp
+    });
     setAnalysisResult(null);
   };
 
-  const totalNutrition = todaysFoods.reduce((total, food) => ({
-    calories: total.calories + food.nutrition.calories,
-    protein: total.protein + food.nutrition.protein,
-    vegetables: total.vegetables + food.nutrition.vegetables,
-    carbs: total.carbs + food.nutrition.carbs,
-    fiber: total.fiber + food.nutrition.fiber,
-    sugar: total.sugar + food.nutrition.sugar
-  }), { calories: 0, protein: 0, vegetables: 0, carbs: 0, fiber: 0, sugar: 0 });
+  const isLoading = goalsLoading || foodsLoading;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      <Header currentView={currentView} onViewChange={setCurrentView} />
+      <Header currentView={currentView} onViewChange={setCurrentView} user={user} />
       
       <main className="container mx-auto px-4 py-6 max-w-6xl">
-        {currentView === 'upload' && (
-          <div className="space-y-6">
-            <PhotoUpload onPhotoAnalysis={handlePhotoAnalysis} />
-            {analysisResult && (
-              <FoodAnalysis 
-                result={analysisResult} 
-                onAddFood={addFoodToToday}
-                onDiscard={() => setAnalysisResult(null)}
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader className="w-8 h-8 animate-spin mx-auto mb-4 text-green-600" />
+              <p className="text-gray-600">Loading your data...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            {currentView === 'upload' && (
+              <div className="space-y-6">
+                <PhotoUpload onPhotoAnalysis={handlePhotoAnalysis} />
+                {analysisResult && (
+                  <FoodAnalysis 
+                    result={analysisResult} 
+                    onAddFood={addFoodToToday}
+                    onDiscard={() => setAnalysisResult(null)}
+                  />
+                )}
+              </div>
+            )}
+            
+            {currentView === 'summary' && (
+              <NutritionSummary 
+                foods={foods}
+                totalNutrition={totalNutrition}
+                goals={goals}
               />
             )}
-          </div>
-        )}
-        
-        {currentView === 'summary' && (
-          <NutritionSummary 
-            foods={todaysFoods}
-            totalNutrition={totalNutrition}
-            goals={userGoals}
-          />
-        )}
-        
-        {currentView === 'goals' && (
-          <GoalSettings 
-            goals={userGoals}
-            onGoalsChange={setUserGoals}
-          />
-        )}
-        
-        {currentView === 'progress' && (
-          <ProgressChart 
-            totalNutrition={totalNutrition}
-            goals={userGoals}
-          />
+            
+            {currentView === 'goals' && (
+              <GoalSettings 
+                goals={goals}
+                onGoalsChange={updateGoals}
+              />
+            )}
+            
+            {currentView === 'progress' && (
+              <ProgressChart 
+                totalNutrition={totalNutrition}
+                goals={goals}
+              />
+            )}
+          </>
         )}
       </main>
     </div>

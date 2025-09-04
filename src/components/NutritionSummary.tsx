@@ -1,6 +1,8 @@
 import React from 'react';
-import { Calendar, Target, TrendingUp, TrendingDown } from 'lucide-react';
+import { Calendar, Target, TrendingUp, TrendingDown, Trash2 } from 'lucide-react';
 import { FoodItem, NutritionData, UserGoals } from '../App';
+import { useFoodLogs } from '../hooks/useFoodLogs';
+import { useAuth } from '../hooks/useAuth';
 
 interface NutritionSummaryProps {
   foods: FoodItem[];
@@ -9,6 +11,15 @@ interface NutritionSummaryProps {
 }
 
 export const NutritionSummary: React.FC<NutritionSummaryProps> = ({ foods, totalNutrition, goals }) => {
+  const { user } = useAuth();
+  const { deleteFood } = useFoodLogs(user?.id);
+
+  const handleDeleteFood = async (foodId: string) => {
+    if (confirm('Are you sure you want to delete this food log?')) {
+      await deleteFood(foodId);
+    }
+  };
+
   const getProgressColor = (current: number, target: number) => {
     const percentage = (current / target) * 100;
     if (percentage >= 90) return 'text-green-600 bg-green-100';
@@ -87,7 +98,7 @@ export const NutritionSummary: React.FC<NutritionSummaryProps> = ({ foods, total
             </div>
           ) : (
             foods.map((food) => (
-              <div key={food.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+              <div key={food.id} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg group">
                 <img
                   src={food.image}
                   alt={food.name}
@@ -101,7 +112,59 @@ export const NutritionSummary: React.FC<NutritionSummaryProps> = ({ foods, total
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="flex items-center space-x-4">
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="text-center">
+                      <p className="font-semibold text-orange-600">{food.nutrition.calories}</p>
+                      <p className="text-gray-500 text-xs">cal</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="font-semibold text-blue-600">{food.nutrition.protein}g</p>
+                      <p className="text-gray-500 text-xs">protein</p>
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={() => handleDeleteFood(food.id)}
+                    className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200"
+                    title="Delete food log"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      {/* Goal Status */}
+      <div className="bg-gradient-to-r from-green-500 to-blue-500 rounded-xl text-white p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-semibold mb-2">Weight Goal Progress</h3>
+            <p className="opacity-90">
+              Target: {goals.targetWeight}kg by {new Date(goals.targetDate).toLocaleDateString()}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center space-x-2">
+              {goals.currentWeight > goals.targetWeight ? (
+                <TrendingDown className="w-6 h-6" />
+              ) : (
+                <TrendingUp className="w-6 h-6" />
+              )}
+              <span className="text-2xl font-bold">
+                {Math.abs(goals.currentWeight - goals.targetWeight)}kg
+              </span>
+            </div>
+            <p className="text-sm opacity-90">to go</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
                   <div className="text-center">
                     <p className="font-semibold text-orange-600">{food.nutrition.calories}</p>
                     <p className="text-gray-500 text-xs">cal</p>
